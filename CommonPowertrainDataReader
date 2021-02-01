@@ -1,0 +1,251 @@
+%% LabView Data Import
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to use this code---
+
+% Step 1: Put all the files (from INCA, IndiCom and LabView) in one folder.
+% Step 2: Define/modify name of the Excel file ('filename') where you 
+%         wish to store all the data. An excel file with the defined name
+%         will be created in the same directory if not already existing.
+% Step 3: Run the section. All the data will be stored accordingly.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Reading all the files with '*.lvm' extension
+% Put all the LabView files in the working directory 
+% (check directory -- 'pwd')
+    LVMFilesInfo = dir('*.lvm');
+
+% Initialzing the file cells and the data matrix
+    allFiles = cell(numel(LVMFilesInfo), 1);
+    LVMData = zeros(numel(LVMFilesInfo),16);
+
+    for i=1:length(LVMFilesInfo)
+        lvm_file = lvm_import(LVMFilesInfo(i).name);  % Call lvm_import
+        allFiles{i} = lvm_file;
+    end
+    
+    % For loop to compile data from all the files into one matrix
+    for i=1:length(LVMFilesInfo)
+        LVMData(i,:) = allFiles{i}.Segment1.data;    
+    end
+    
+     % Adding File name in the excel sheet
+     lvm_file_data = struct2cell(LVMFilesInfo);
+     lvm_file_id = lvm_file_data(1,1:end)';
+ 
+     % Choose the filename for the excel file where you want to store all
+     % the data
+     filename = 'Enter_your_file_name.xlsx';
+     xlswrite(filename,lvm_file_id,1,'A3'); 
+    
+     % Adding the data in the excel file
+     filename = 'WI_BSFC.xlsxEnter_your_file_name.xlsx';
+     xlswrite(filename,LVMData,1,'B3'); 
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This is the alternative way (probably slower)
+% developed by J Khatri (2019-03-02)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % Number of files
+%     files_lv = 1:10; % File names should be like '2019-02-27.001.lvm'
+%     
+%     allFiles = cell(numel(files_lv), 1);
+%     LVM = zeros(numel(files_lv),16); % Matrix for LabView Data
+%     
+%     % For Loop to read all the Labview files
+%     for i = 1 : numel(files_lv)
+%       LV_data = lvm_import(['xxx' mat2str(files_lv(i)) '.lvm']);
+%       allFiles{i} = LV_data;     
+%     end
+%       
+%     % For loop to compile data from all the files into one matrix
+%      for i=1:numel(files_lv)
+%          LVM(i,:) = allFiles{i}.Segment1.data;    
+%     end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Data from AVL IndiCom
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to use this code---
+
+% Step 1: Define the path of the folder/directory where all (indiCom) files
+%         are stored, under the variable 'Folder'.
+% Step 2: Define/modify name and the respective Sheet of the Excel file 
+%         ('filename') where you wish to store all the data.
+% Step 3: Run the section. All the data will be stored accordingly.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Loading the IndiCom files
+Folder   = 'C:\Users\xyz\abc';
+FileList = dir(fullfile(Folder, '*'));      % Return cells of char array
+%FileList = dir(fullfile('*'));             % Alternative_1 -- returns struct of files data
+%INDIFilesInfo = dir('*');                  % Alternative_2 -- returns struct of files data
+
+INDIFilesInfo = {FileList.name};
+hasDot   = contains(INDIFilesInfo, '.');    % Choosing the indi files -- (w/o any extension)
+% CONTAINS() works for string array, a character vector, or a cell
+% array of character vectors not for STRUCT.
+INDIFilesInfo(hasDot) = []; % All the indCom files
+indi_file_names = INDIFilesInfo;
+indi_file_names = indi_file_names';
+INDIFilesInfo = string(INDIFilesInfo)';
+% List of all the files which do not contain a '.' and do not have a file extension.
+
+% Initialzing the output matrices
+indiFiles = cell(length(INDIFilesInfo), 1);
+Data_indiCom = zeros(length(INDIFilesInfo),8);
+IndiFile_name = zeros(length(INDIFilesInfo),1);
+
+for j=1:length(INDIFilesInfo)
+    indi_data = load_ifile(INDIFilesInfo(j),1);
+    indiFiles{j,:} = indi_data;
+
+    % Engine Speed (rpm)
+    rpm = mean(indiFiles{j,1}.SPEED.data);
+    Data_indiCom(j,1)= mean(rpm);
+    
+    % Engine Load (IMEP - bar)
+    IMEP_3cyl_300cyc = [indi_data.IMEPm1.data, indi_data.IMEPm2.data, indi_data.IMEPm2.data];
+    IMEP_3cyl_avg = mean(IMEP_3cyl_300cyc);
+    Data_indiCom(j,2) = mean(IMEP_3cyl_avg);
+    
+    % WI Pressure (bar)
+    wi_p = mean(indiFiles{j,1}.P_H2O.data);
+    Data_indiCom(j,3) = mean(wi_p);
+    
+    % MFB50 (CAD aFTDC)
+    MFB50_3cyl_300cyc = [indi_data.AI50X_1.data, indi_data.AI50X_2.data, indi_data.AI50X_3.data];
+    MFB50_3cyl_avg = mean(MFB50_3cyl_300cyc);
+    Data_indiCom(j,4) = mean(MFB50_3cyl_avg);
+    
+    % MFB10 (CAD aFTDC)
+    MFB10_3cyl_300cyc = [indi_data.AI10X_1.data, indi_data.AI10X_2.data, indi_data.AI10X_3.data];
+    MFB10_3cyl_avg = mean(MFB10_3cyl_300cyc);
+    Data_indiCom(j,5) = mean(MFB10_3cyl_avg);
+    
+    % MFB90 (CAD aFTDC)
+    MFB90_3cyl_300cyc = [indi_data.AI90X_1.data, indi_data.AI90X_2.data, indi_data.AI90X_3.data];
+    MFB90_3cyl_avg = mean(MFB90_3cyl_300cyc);
+    Data_indiCom(j,6) = mean(MFB90_3cyl_avg);
+    
+    % MFB50 - Cyl 1 (CAD aTDC)
+    MFB50_cyl1 = [indi_data.AI50X_1.data];
+    Data_indiCom(j,7) = mean(MFB50_cyl1);
+    
+    % MFB10 - Cyl 1 (CAD aTDC)
+    MFB10_cyl1 = [indi_data.AI10X_1.data];
+    Data_indiCom(j,8) = mean(MFB10_cyl1);
+    
+    % MFB90 - Cyl 1 (CAD aTDC)
+    MFB90_cyl1 = [indi_data.AI90X_1.data];
+    Data_indiCom(j,9) = mean(MFB90_cyl1);
+    
+    % Cylinder Pressure (bar)
+    P_3cyl_300cyc = [indi_data.PMAX1.data, indi_data.PMAX2.data, indi_data.PMAX3.data];
+    P_3cyl_avg = mean(P_3cyl_300cyc);
+    Data_indiCom(j,10) = mean(P_3cyl_avg);
+    
+    % Cylinder pressure right before ignition (relevant to 4800 RPM case)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % here "525" is the column number corresponding to the 0.1 CAD before
+    % ignition timing. e.g. - 
+    %       Ign timing (zwout) = 10.5 CA bFTDC
+    %       P_cyl is the pressure at 10.6 CA bFTDC
+    % This is done to calculate Cp/Cv or 'Kappa' 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    P_ign_3cyl_300cyc = [indi_data.PCYL1.data(525,:)', indi_data.PCYL2.data(525,:)', indi_data.PCYL3.data(525,:)'];
+    P_ign_3cyl_avg = mean(P_ign_3cyl_300cyc);
+    Data_indiCom(j,11)= mean(P_ign_3cyl_avg);
+    
+    
+    % Cylinder pressure right before ignition (relevant to 3600 RPM case)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % here "555" is the column number corresponding to the 0.1 CAD before
+    % ignition timing. e.g. - 
+    %       Ign timing (zwout) = 7.5 CA bFTDC
+    %       P_cyl is the pressure at 7.6 CA bFTDC
+    % This is done to calculate Cp/Cv or 'Kappa' 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    P_ig_3cyl_300cyc = [indi_data.PCYL1.data(563,:)', indi_data.PCYL2.data(563,:)', indi_data.PCYL3.data(563,:)'];
+    P_ig_3cyl_avg = mean(P_ig_3cyl_300cyc);
+    Data_indiCom(j,12)= mean(P_ig_3cyl_avg);
+end
+
+% Adding file names to Excel sheet
+indi_file_id = indi_file_names(1:end,1);
+filename = 'choose_name.xlsx';
+xlswrite(filename,indi_file_id,2,'A3');
+
+% Exporting the data to Excel sheet
+xlswrite(filename,Data_indiCom,2,'B3');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
+%% Converting data from ETAS INCA to MAT Files
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to use this code---
+
+% Step 1: Put a text file ('INCA_Signals_Import.txt') with all the 
+%         parameters you wish to import from INCA, into the same
+%         working directory.
+% Step 2: Run the section. All the INCA files will be converted into
+%         working 'MAT' files and stored in the same working directory. 
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% clear;
+type INCA_Signals_Import.txt;              % Signals being imported 
+
+% Reading all the files in the directory with '*.dat' extension
+INCAFilesInfo = dir('*.dat'); 
+
+% Load all and convert to .mat
+for k=1:length(INCAFilesInfo)
+    mdfimport(INCAFilesInfo(k).name,'Auto MAT-File',...
+        'INCA_Signals_Import.txt','actual','ratenumber'); % Call mdfimport
+end
+%%%%%%%%%%%%%%%%%%%%%---continued in next section---%%%%%%%%%%%%%%%%%%%%%%%
+%% Loading 'averaged' INCA Data from MAT Files to one matrix
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to use this code---
+
+% Step 1: Change the name of the excel file under 'filename' variable.
+% Step 2: Run the section. All the data will be stored in the excel file.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+MATFilesInfo = dir('*.mat');
+
+% Initialzing cell and data array
+    data_inca = cell(length(MATFilesInfo),1);
+    Data_INCA = zeros(length(MATFilesInfo));
+
+% Load all the .MAT files
+    for m=1:length(MATFilesInfo)
+        data_inca{m,:} = load(MATFilesInfo(m).name);
+        names=fieldnames(data_inca{1,1});
+    
+% Storing all data in one Matrix file
+        for n=1:length(names)
+            eval(sprintf('Data_INCA(m,n)=mean(data_inca{m,1}.%s)',char(names(n)))); %
+        end
+    end
+
+% Adding file names to Excel sheet    
+    file_data = struct2cell(MATFilesInfo);
+    file_id = file_data(1,1:end)';
+
+    filename = 'choose_name.xlsx';
+    xlswrite(filename,file_id,3,'A3'); 
+    
+% Exporting the data to Excel sheet
+    xlswrite(filename,Data_INCA,3,'B3');
+
+   
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This is the link to the 'MDF Import Fuction Help Page'
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%<https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/9622/versions/8/previews/mdfimportfunctionhelp.html#29>
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
